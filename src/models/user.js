@@ -1,6 +1,8 @@
 const mongoose = require('mongoose')
 const validator = require('validator')
 const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const Task = require('./task')
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -10,6 +12,7 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
+        unique: true,
         required: true,
         trim: true,
         lowercase: true,
@@ -38,9 +41,72 @@ const userSchema = new mongoose.Schema({
                 throw new Error('Password cannot contain "password"')
             }
         }
-    }
+    },
+    tokens: [{
+        token: {
+            type: String,
+            required: true
+        }
+    }]
+}, {
+    timestamps: true
 })
 
+// We have add the userId to the tasks document to get the relationship. But with this we can get the wise versa relationship
+//without saving it on the document
+userSchema.virtual('tasks', {
+    ref: 'Task',
+    localField: '_id',
+    foreignField: 'owner'
+})
+
+//This is use to remove sensitive data just before return back to the client.
+userSchema.methods.toJSON = function() {
+    const user = this
+    const userObject = user.toObject();
+
+    delete userObject.password
+    delete userObject.tokens
+    return userObject
+}
+
+//This is an instance method. we can access this using user.generateToken()
+userSchema.methods.generateAuthToken = async function() {
+    const user = this
+    const token = await jwt.sign({ _id: user._id.toString() }, 'thisismynewcourse')
+
+    user.tokens = user.tokens.concat({ token })
+    await user.save()
+
+    return token
+
+}
+
+// This is a customized global function like findById. This is globally available
+userSchema.statics.findByCredentials = async(email, password) => {
+
+    const user = await User.findOne({ email })
+
+    if (!user) {
+        throw new Error('Unable to login.')
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password)
+    if (!isMatch) {
+        throw new Error('Unable to login.')
+    }
+    return user
+
+}
+
+//Delete user tasks when deleting user profile
+userSchema.pre('remove', async function(next) {
+    const user = this
+    await Task.deleteMany({ owner: user._id })
+    next()
+})
+
+// Hash the plain text password before saving
 userSchema.pre('save', async function(next) {
     const user = this
     if (user.isModified('password')) {
