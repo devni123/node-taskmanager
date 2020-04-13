@@ -5,7 +5,7 @@ const userRouter = require('./routers/user')
 const taskRouter = require('./routers/task')
 
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT //|| 3000
 
 //Convert incoming JSON strings to JSON objects for every request
 app.use(express.json())
@@ -211,17 +211,3 @@ app.use(taskRouter)
 app.listen(port, () => {
     console.log('Express server is up on port ' + port)
 })
-
-
-// const Task = require('./models/task')
-// const User = require('./models/user')
-
-// const main = async() => {
-
-//     const user = await User.findById('5e91bb9fbfee9a09d47f9ae0')
-
-//     await user.populate('tasks').execPopulate()
-//     console.log(user.tasks)
-// }
-
-// main()
